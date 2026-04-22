@@ -4,32 +4,41 @@
  * Copyright (C) 2017 Red Hat, Inc.
  */
 
-import React, { useEffect, useState } from 'react';
-import { Alert } from "@patternfly/react-core/dist/esm/components/Alert/index.js";
-import { Card, CardBody, CardTitle } from "@patternfly/react-core/dist/esm/components/Card/index.js";
+import React, { useState } from 'react';
+import { Tabs, Tab, TabTitleText } from "@patternfly/react-core/dist/esm/components/Tabs/index.js";
+import { Dashboard } from './pages/Dashboard';
+import { Settings } from './pages/Settings';
+import { Logs } from './pages/Logs';
+import { ConfigEditor } from './pages/ConfigEditor';
 
-import cockpit from 'cockpit';
-
-const _ = cockpit.gettext;
+import './app.scss';
 
 export const Application = () => {
-    const [hostname, setHostname] = useState(_("Unknown"));
+    const [activeTabKey, setActiveTabKey] = useState<string | number>(0);
 
-    useEffect(() => {
-        const hostname = cockpit.file('/etc/hostname');
-        hostname.watch(content => setHostname(content?.trim() ?? ""));
-        return hostname.close;
-    }, []);
+    const handleTabClick = (
+        event: React.MouseEvent<any> | React.KeyboardEvent | MouseEvent,
+        tabIndex: string | number
+    ) => {
+        setActiveTabKey(tabIndex);
+    };
 
     return (
-        <Card>
-            <CardTitle>Starter Kit</CardTitle>
-            <CardBody>
-                <Alert
-                    variant="info"
-                    title={ cockpit.format(_("Running on $0"), hostname) }
-                />
-            </CardBody>
-        </Card>
+        <React.Fragment>
+            <Tabs activeKey={activeTabKey} onSelect={handleTabClick} isBox>
+                <Tab eventKey={0} title={<TabTitleText>Dashboard</TabTitleText>}>
+                    <Dashboard />
+                </Tab>
+                <Tab eventKey={1} title={<TabTitleText>Logs</TabTitleText>}>
+                    <Logs />
+                </Tab>
+                <Tab eventKey={2} title={<TabTitleText>Config Editor</TabTitleText>}>
+                    <ConfigEditor />
+                </Tab>
+                <Tab eventKey={3} title={<TabTitleText>Settings</TabTitleText>}>
+                    <Settings />
+                </Tab>
+            </Tabs>
+        </React.Fragment>
     );
 };

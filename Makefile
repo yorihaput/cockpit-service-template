@@ -86,10 +86,10 @@ packaging/arch/PKGBUILD: packaging/arch/PKGBUILD.in
 	sed 's/VERSION/$(VERSION)/; s/SOURCE/$(TARFILE)/' $< > $@
 
 $(DIST_TEST): $(NODE_MODULES_TEST) $(COCKPIT_REPO_STAMP) $(shell find src/ -type f) package.json build.js
-	NODE_ENV=$(NODE_ENV) ./build.js
+	NODE_ENV=$(NODE_ENV) ./build.js $(if $(ENV),--env $(ENV))
 
 watch: $(NODE_MODULES_TEST) $(COCKPIT_REPO_STAMP)
-	NODE_ENV=$(NODE_ENV) ./build.js --watch
+	NODE_ENV=$(NODE_ENV) ./build.js --watch $(if $(ENV),--env $(ENV))
 
 clean:
 	rm -rf dist/

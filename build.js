@@ -43,8 +43,34 @@ const parser = (await import('argparse')).default.ArgumentParser();
 /* eslint-disable max-len */
 parser.add_argument('-r', '--rsync', { help: "rsync bundles to ssh target after build", metavar: "HOST" });
 parser.add_argument('-w', '--watch', { action: 'store_true', help: "Enable watch mode", default: process.env.ESBUILD_WATCH === "true" });
+parser.add_argument('-e', '--env', { help: "Environment suffix (e.g. adguardhome for .env.adguardhome)", metavar: "NAME" });
 /* eslint-enable max-len */
 const args = parser.parse_args();
+
+// Simple .env parser
+const env = {};
+let envFile = '.env';
+if (args.env) {
+    const candidate = `.env.${args.env}`;
+    if (fs.existsSync(candidate)) {
+        envFile = candidate;
+    } else {
+        console.warn(`Warning: Environment file ${candidate} not found, falling back to .env`);
+    }
+}
+
+if (fs.existsSync(envFile)) {
+    console.log(`Using environment file: ${envFile}`);
+    const dotenvContent = fs.readFileSync(envFile, 'utf8');
+    dotenvContent.split('\n').forEach(line => {
+        const [key, ...value] = line.split('=');
+        if (key && value.length > 0) {
+            env[key.trim()] = value.join('=').trim().replace(/^["']|["']$/g, '');
+        }
+    });
+} else {
+    console.warn(`Warning: No environment file found (${envFile}). Using defaults.`);
+}
 
 if (args.rsync)
     process.env.RSYNC = args.rsync;
@@ -106,6 +132,14 @@ const context = await esbuild.context({
     outdir,
     metafile: true,
     target: ['es2020'],
+    define: {
+        'process.env.APP_NAME': JSON.stringify(env.APP_NAME || 'ServiceManager'),
+        'process.env.APP_LABEL': JSON.stringify(env.APP_LABEL || 'Service Manager'),
+        'process.env.DEFAULT_SERVICE_NAME': JSON.stringify(env.DEFAULT_SERVICE_NAME || 'service'),
+        'process.env.DEFAULT_CONFIG_PATH': JSON.stringify(env.DEFAULT_CONFIG_PATH || '/etc/service.conf'),
+        'process.env.DEFAULT_WEB_UI_URL': JSON.stringify(env.DEFAULT_WEB_UI_URL || 'http://{hostname}:8080'),
+        'process.env.CONFIG_STORAGE_PATH': JSON.stringify(env.CONFIG_STORAGE_PATH || '/etc/cockpit/service-plugin.json'),
+    },
     plugins: [
         cleanPlugin(),
         // Esbuild will only copy assets that are explicitly imported and used in the code.
@@ -115,7 +149,11 @@ const context = await esbuild.context({
             setup(build) {
                 build.onEnd((output, _outputFiles) => {
                     if (output?.errors.length === 0) {
-                        fs.copyFileSync('./src/manifest.json', './dist/manifest.json');
+                        // Dynamically update manifest.json from .env
+                        const manifest = JSON.parse(fs.readFileSync('./src/manifest.json', 'utf8'));
+                        manifest.tools.index.label = env.APP_LABEL || manifest.tools.index.label;
+                        fs.writeFileSync('./dist/manifest.json', JSON.stringify(manifest, null, 4));
+
                         fs.copyFileSync('./src/index.html', './dist/index.html');
                     }
                 });
